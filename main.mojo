@@ -1,14 +1,6 @@
 from memory.unsafe import DTypePointer
 
-
-trait Iterable:
-   fn __len__(self) -> Int:
-      pass
-
-   # declaration below too restrictive
-   fn __getitem__(self, index : Int) -> Int:
-      pass
-
+alias usedDType = DType.int8
 
 struct Vector[DataType: DType]:
    var size : Int
@@ -23,15 +15,6 @@ struct Vector[DataType: DType]:
       self.size = other.size
       self.data = DTypePointer[DataType].alloc(other.size)
       memcpy(self.data, other.data, other.size)
-
-   # fn __init__( inout self : Vector[DataType], listLike: Iterable):
-
-   #    self.size = listLike.__len__()
-   #    self.data = DTypePointer[DataType].alloc(self.size)
-
-   #    #enumerate isn't implemented yet
-   #    for i in range(self.size):
-   #       self.__setitem__(i,listLike.__getitem__(i))
 
    fn __setitem__(inout self : Vector[DataType], index : Int, value : SIMD[DataType, 1]):
       self.data[index] = value
@@ -94,20 +77,41 @@ struct Matrix[DataType: DType]:
          for j in range(self.cols):
             result = result + String(self.data[i * self.cols + j].to_int())
             if j < self.cols - 1:
-               result = result + ", "
+               result = result + ",\t"
          result = result + "]"
          if i < self.rows - 1:
-            result = result + ", "
+            result = result + ", \n "
       result = result + "]"
       return result
 
    fn print(borrowed self : Matrix[DataType]):
       print(self.__str__())
 
+# can be optimized by swapping reasoning around data
+   fn transposed(inout self : Matrix[DataType]) -> Matrix[DataType]:
+      var temp = Matrix[DataType](self.cols, self.rows)
+      for i in range(self.rows):
+         for j in range(self.cols):
+            temp[j, i] = self[i, j]
+      return temp
+
+   fn multiply(borrowed self : Matrix[DataType], borrowed right : Matrix[DataType]) -> Matrix[DataType]:
+      var result = Matrix[DataType](self.rows, right.cols)
+      for i in range(self.rows):
+         for j in range(right.cols):
+            var sum = SIMD[DataType, 1](0)
+            for k in range(self.cols):
+               sum += self[i, k] * right[k, j]
+            result[i, j] = sum
+      return result
 
 fn main():
-
-   var v = Vector[DType.int8](10)
-   v[1] = 9
-   v.print()
-   print(v[1])
+   var m = Matrix[usedDType](2, 3)
+   m[0, 0] = 3
+   m[0, 1] = 2
+   m[0, 2] = 2
+   m[1, 0] = 2
+   m[1, 1] = 3
+   m[1, 2] = -2
+   var mt = m.transposed()
+   m.multiply(mt).print()
